@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import solc from "solc";
+import { SecurityScanner } from "./analyzers/SecurityScanner";
+import { GasOptimizer } from "./analyzers/GasOptimizer";
 
 export interface AnalysisResult {
   contractName: string;
@@ -121,23 +123,78 @@ export class SmartContractAnalyzer {
    * vulnerability detection algorithms
    */
   private detectVulnerabilities(): Vulnerability[] {
-    // Placeholder for vulnerability detection
-    // In a real implementation, this would include checks for:
-    // - Reentrancy
-    // - Integer overflow/underflow
-    // - Unchecked external calls
-    // - Access control issues
-    // etc.
+    const securityScanner = new SecurityScanner(
+      this.sourceCode,
+      this.contractName
+    );
 
-    return [];
+    // Convert SecurityScanner findings to the expected Vulnerability format
+    return securityScanner.scan().map((finding) => {
+      return {
+        id: finding.id,
+        name: finding.name || "Security Issue",
+        description: finding.description,
+        severity:
+          finding.severity ||
+          ("Medium" as
+            | "Critical"
+            | "High"
+            | "Medium"
+            | "Low"
+            | "Informational"),
+        location: {
+          file: finding.location.file || this.contractName,
+          line: finding.location.line || 0,
+          column: finding.location.column,
+        },
+        details: finding.details || finding.description,
+        recommendation:
+          finding.recommendation ||
+          "Review this section of code for security issues.",
+      };
+    });
   }
 
   /**
    * Detect gas optimization issues
    */
   private detectGasIssues(): GasIssue[] {
-    // Placeholder for gas issue detection
-    return [];
+    const gasOptimizer = new GasOptimizer(this.sourceCode, this.contractName);
+
+    // First get the raw result
+    const rawIssues = gasOptimizer.analyze();
+
+    // Then map it with proper type safety
+    return rawIssues.map((issue: any) => {
+      // Ensure all required properties are present and properly typed
+      const gasIssue: GasIssue = {
+        id: issue.id || `gas-${Math.random().toString(36).substring(2, 9)}`,
+        description: issue.description || "Gas optimization opportunity",
+        location: {
+          file:
+            issue.location && issue.location.file
+              ? issue.location.file
+              : this.contractName,
+          line:
+            issue.location && typeof issue.location.line === "number"
+              ? issue.location.line
+              : 0,
+          column:
+            issue.location && typeof issue.location.column === "number"
+              ? issue.location.column
+              : undefined,
+        },
+        potential_savings:
+          typeof issue.potential_savings === "string"
+            ? issue.potential_savings
+            : "Unknown",
+        recommendation:
+          issue.recommendation ||
+          "Review this code section for gas optimization.",
+      };
+
+      return gasIssue;
+    });
   }
 
   /**

@@ -52,10 +52,8 @@ interface AnalysisOptions {
 }
 
 // Interface for resources that need to be cleaned up
-interface DisposableResource {
-  dispose?: () => void;
-  cleanup?: () => void;
-  close?: () => void;
+export interface DisposableResource {
+  [method: string]: any;
 }
 
 // Define a basic security scanner class for local use

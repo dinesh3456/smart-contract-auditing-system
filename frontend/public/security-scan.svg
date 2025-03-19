@@ -1,0 +1,92 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Elements -->
+  <defs>
+    <linearGradient id="gridGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Grid Background -->
+  <rect x="0" y="0" width="800" height="600" fill="url(#gridGradient)"/>
+  
+  <!-- Blockchain Grid Lines -->
+  <g stroke-opacity="0.2">
+    <g stroke="#2dd4bf">
+      <line x1="0" y1="100" x2="800" y2="100" stroke-width="1"/>
+      <line x1="0" y1="200" x2="800" y2="200" stroke-width="1"/>
+      <line x1="0" y1="300" x2="800" y2="300" stroke-width="1"/>
+      <line x1="0" y1="400" x2="800" y2="400" stroke-width="1"/>
+      <line x1="0" y1="500" x2="800" y2="500" stroke-width="1"/>
+    </g>
+    <g stroke="#7c3aed">
+      <line x1="100" y1="0" x2="100" y2="600" stroke-width="1"/>
+      <line x1="200" y1="0" x2="200" y2="600" stroke-width="1"/>
+      <line x1="300" y1="0" x2="300" y2="600" stroke-width="1"/>
+      <line x1="400" y1="0" x2="400" y2="600" stroke-width="1"/>
+      <line x1="500" y1="0" x2="500" y2="600" stroke-width="1"/>
+      <line x1="600" y1="0" x2="600" y2="600" stroke-width="1"/>
+      <line x1="700" y1="0" x2="700" y2="600" stroke-width="1"/>
+    </g>
+  </g>
+  
+  <!-- Smart Contract -->
+  <g transform="translate(250, 150)">
+    <rect x="0" y="0" width="300" height="300" rx="10" ry="10" fill="#1e293b" fill-opacity="0.8" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+    
+    <!-- Code Lines -->
+    <g fill="#f8fafc" font-family="monospace" font-size="12">
+      <text x="20" y="40" fill="#2dd4bf">pragma solidity ^0.8.0;</text>
+      <text x="20" y="70" fill="#7c3aed">contract SecureToken {</text>
+      <text x="40" y="100" fill="#f8fafc">  mapping(address => uint) balances;</text>
+      <text x="40" y="130" fill="#f8fafc">  address private owner;</text>
+      <text x="40" y="160" fill="#f8fafc">  uint public totalSupply;</text>
+      <text x="20" y="190" fill="#f8fafc">  </text>
+      <text x="40" y="220" fill="#7c3aed">  function transfer(address to, uint value) public {</text>
+      <text x="60" y="250" fill="#2dd4bf">    require(balances[msg.sender] >= value);</text>
+      <text x="60" y="280" fill="#f8fafc">    balances[msg.sender] -= value;</text>
+      <text x="60" y="310" fill="#f8fafc">    balances[to] += value;</text>
+      <text x="40" y="340" fill="#f8fafc">  }</text>
+      <text x="20" y="370" fill="#7c3aed">}</text>
+    </g>
+  </g>
+  
+  <!-- Shield -->
+  <g transform="translate(400, 300)" filter="url(#glow)">
+    <path d="M0,-150 C100,-150 150,-100 150,0 C150,100 75,150 0,200 C-75,150 -150,100 -150,0 C-150,-100 -100,-150 0,-150 Z" 
+          fill="none" stroke="url(#shieldGradient)" stroke-width="10" stroke-linejoin="round" opacity="0.8"/>
+    <circle cx="0" cy="0" r="30" fill="url(#shieldGradient)" opacity="0.8"/>
+    <path d="M-15,-15 L 15,15 M-15,15 L 15,-15" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Scanning Animation -->
+  <line x1="200" y1="150" x2="550" y2="150" stroke="#2dd4bf" stroke-width="2" stroke-dasharray="10,5">
+    <animate attributeName="y1" values="150;450;150" dur="3s" repeatCount="indefinite" />
+    <animate attributeName="y2" values="150;450;150" dur="3s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.2;1;0.2" dur="3s" repeatCount="indefinite" />
+  </line>
+  
+  <!-- Security Icons -->
+  <g fill="url(#shieldGradient)">
+    <circle cx="150" cy="150" r="15" opacity="0.7"/>
+    <circle cx="650" cy="150" r="15" opacity="0.7"/>
+    <circle cx="150" cy="450" r="15" opacity="0.7"/>
+    <circle cx="650" cy="450" r="15" opacity="0.7"/>
+  </g>
+  
+  <!-- Connection Lines -->
+  <g stroke="url(#shieldGradient)" stroke-width="1" stroke-dasharray="5,5">
+    <line x1="165" y1="150" x2="250" y2="150" opacity="0.4"/>
+    <line x1="550" y1="150" x2="635" y2="150" opacity="0.4"/>
+    <line x1="165" y1="450" x2="250" y2="450" opacity="0.4"/>
+    <line x1="550" y1="450" x2="635" y2="450" opacity="0.4"/>
+  </g>
+</svg>

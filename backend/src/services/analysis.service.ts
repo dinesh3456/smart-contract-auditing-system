@@ -35,12 +35,12 @@ interface ComplianceResult {
   recommendations: string[];
 }
 
-interface AnomalyResults {
+interface AnomalyResult {
   isAnomaly: boolean;
-  anomalyScore: number;
-  anomalyDescription: string;
-  anomalyFactors: string[];
-  recommendations: string[];
+  confidence: number;
+  description: string;
+  line?: number;
+  function?: string;
 }
 
 interface AnalysisOptions {
@@ -51,8 +51,15 @@ interface AnalysisOptions {
   standards: string[];
 }
 
+// Interface for resources that need to be cleaned up
+interface DisposableResource {
+  dispose?: () => void;
+  cleanup?: () => void;
+  close?: () => void;
+}
+
 // Define a basic security scanner class for local use
-class SecurityScanner {
+class SecurityScanner implements DisposableResource {
   private scanner: any;
 
   constructor(private readonly sourceCode: string) {
@@ -74,9 +81,16 @@ class SecurityScanner {
       recommendation: vuln.recommendation,
     }));
   }
+
+  dispose() {
+    // Explicitly cleanup the scanner resources
+    if (this.scanner && typeof this.scanner.dispose === "function") {
+      this.scanner.dispose();
+    }
+  }
 }
 
-class GasOptimizer {
+class GasOptimizer implements DisposableResource {
   private optimizer: any;
 
   constructor(private readonly sourceCode: string) {
@@ -89,30 +103,121 @@ class GasOptimizer {
   analyze(): GasIssue[] {
     return this.optimizer.analyze();
   }
+
+  dispose() {
+    // Cleanup the optimizer resources
+    if (this.optimizer && typeof this.optimizer.dispose === "function") {
+      this.optimizer.dispose();
+    }
+  }
 }
 
 // Define a basic compliance checker class for local use
-class StandardComplianceChecker {
+class ComplianceChecker implements DisposableResource {
   private sourceCode: string;
+  private standards: string[];
+  private checkers: any[] = [];
 
-  constructor(sourceCode: string) {
+  constructor(sourceCode: string, standards: string[]) {
     this.sourceCode = sourceCode;
+    this.standards = standards;
   }
 
-  checkERC20(): ComplianceResult {
-    const {
-      ERC20Checker,
-    } = require("../../compliance-checker/src/standards/ERC20Checker");
-    const checker = new ERC20Checker(this.sourceCode);
-    return checker.checkCompliance();
+  checkCompliance(): any[] {
+    const results = [];
+
+    for (const standard of this.standards) {
+      try {
+        let checker;
+        if (standard === "ERC20") {
+          const {
+            ERC20Checker,
+          } = require("../../compliance-checker/src/standards/ERC20Checker");
+          checker = new ERC20Checker(this.sourceCode);
+        } else if (standard === "ERC721") {
+          const {
+            ERC721Checker,
+          } = require("../../compliance-checker/src/standards/ERC721Checker");
+          checker = new ERC721Checker(this.sourceCode);
+        } else {
+          // Skip unknown standards
+          logger.warn(
+            `Unknown standard: ${standard}, skipping compliance check`
+          );
+          continue;
+        }
+
+        this.checkers.push(checker);
+        const result = checker.checkCompliance();
+        result.standard = standard;
+        results.push(result);
+      } catch (error) {
+        logger.error(`Error checking compliance with ${standard}:`, error);
+        results.push({
+          standard,
+          compliant: false,
+          details: `Error checking compliance: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          recommendation:
+            "Please check your contract implementation against the standard specification.",
+        });
+      }
+    }
+
+    return results;
   }
 
-  checkERC721(): ComplianceResult {
-    const {
-      ERC721Checker,
-    } = require("../../compliance-checker/src/standards/ERC721Checker");
-    const checker = new ERC721Checker(this.sourceCode);
-    return checker.checkCompliance();
+  dispose() {
+    // Clean up all checkers
+    for (const checker of this.checkers) {
+      if (checker && typeof checker.dispose === "function") {
+        checker.dispose();
+      }
+    }
+    this.checkers = [];
+  }
+}
+
+class AnomalyDetector implements DisposableResource {
+  private detector: any;
+  private aiDetectorUrl: string;
+
+  constructor(private readonly sourceCode: string) {
+    this.aiDetectorUrl =
+      process.env.AI_DETECTOR_URL || "http://ai-detector:5002/api/analyze";
+  }
+
+  async detectAnomalies(): Promise<AnomalyResult[]> {
+    try {
+      const response = await axios.post(
+        this.aiDetectorUrl,
+        { sourceCode: this.sourceCode },
+        { timeout: 30000 }
+      );
+
+      if (response.data && response.data.anomalies) {
+        return response.data.anomalies.map((anomaly: any) => ({
+          isAnomaly: true,
+          confidence: anomaly.confidence || 0.5,
+          description: anomaly.description || "Unknown anomaly detected",
+          line: anomaly.line,
+          function: anomaly.function,
+        }));
+      }
+      return [];
+    } catch (error) {
+      logger.error("Error detecting anomalies:", error);
+      throw new Error(
+        `Anomaly detection failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  dispose() {
+    // No specific cleanup needed for HTTP-based detector
   }
 }
 
@@ -135,12 +240,10 @@ export class AnalysisService {
       return false;
     }
   }
+
   /**
    * Start a new analysis job
    */
-  // Modify the startAnalysis method in analysis.service.ts
-  // Update the startAnalysis method
-
   public async startAnalysis(
     contractId: string,
     options: AnalysisOptions
@@ -197,247 +300,193 @@ export class AnalysisService {
   }
 
   /**
-   * Process the analysis (this would typically be handled by a job queue in production)
+   * Process the analysis with memory leak prevention and resource cleanup
    */
   public async processAnalysis(
     sourceCode: string,
     analysisId: string,
     options: AnalysisOptions
   ): Promise<void> {
+    logger.info(`Starting analysis ${analysisId} with options:`, options);
+
+    const vulnerabilities = [];
+    const gasIssues = [];
+    // Define interface for recommendation items
+    interface Recommendation {
+      type: string;
+      description: string;
+      impact: string;
+      line?: number;
+      suggestion: string;
+      function?: string;
+    }
+
+    const recommendations: Recommendation[] = [];
+    const complianceResults = [];
+    let overallRiskRating = "low";
+
+    const resources: DisposableResource[] = [];
+
     try {
-      logger.info(`Processing analysis ${analysisId}`);
-
-      // Results containers
-      const vulnerabilities: SecurityVulnerability[] = [];
-      const gasIssues: GasIssue[] = [];
-      const complianceResults: Record<string, ComplianceResult> = {};
-      let anomalyResults: AnomalyResults | null = null;
-      const recommendations: string[] = [];
-
-      // Run security scanner
+      // Run security scanner if enabled
       if (options.securityScan) {
-        logger.info(`Running security scan for analysis ${analysisId}`);
         const securityScanner = new SecurityScanner(sourceCode);
-        vulnerabilities.push(...securityScanner.scan());
+        resources.push(securityScanner);
+
+        const securityResults = securityScanner.scan();
+        vulnerabilities.push(...securityResults);
+
+        // Adjust risk rating based on findings
+        if (securityResults.some((v) => v.severity === "critical")) {
+          overallRiskRating = "critical";
+        } else if (
+          overallRiskRating !== "critical" &&
+          securityResults.some((v) => v.severity === "high")
+        ) {
+          overallRiskRating = "high";
+        } else if (
+          overallRiskRating !== "critical" &&
+          overallRiskRating !== "high" &&
+          securityResults.some((v) => v.severity === "medium")
+        ) {
+          overallRiskRating = "medium";
+        }
       }
 
-      // Run gas optimization
+      // Run gas optimization if enabled
       if (options.gasOptimization) {
-        logger.info(`Running gas optimization for analysis ${analysisId}`);
         const gasOptimizer = new GasOptimizer(sourceCode);
-        gasIssues.push(...gasOptimizer.analyze());
+        resources.push(gasOptimizer);
+
+        const optimizationResults = gasOptimizer.analyze();
+        gasIssues.push(...optimizationResults);
+
+        // Add gas optimization recommendations
+        optimizationResults.forEach((issue) => {
+          recommendations.push({
+            type: "gas",
+            description: `Optimize gas usage at line ${issue.location?.line}: ${issue.description}`,
+            impact: "medium",
+            line: issue.location?.line,
+            suggestion: issue.recommendation,
+          });
+        });
       }
 
-      // Run compliance check
+      // Run compliance checks if enabled
       if (options.complianceCheck) {
-        logger.info(`Running compliance check for analysis ${analysisId}`);
-        const complianceChecker = new StandardComplianceChecker(sourceCode);
+        const standards = options.standards || ["ERC20", "ERC721"];
+        const complianceChecker = new ComplianceChecker(sourceCode, standards);
+        resources.push(complianceChecker);
 
-        for (const standard of options.standards) {
-          if (standard === "erc20") {
-            complianceResults["erc20"] = complianceChecker.checkERC20();
-          } else if (standard === "erc721") {
-            complianceResults["erc721"] = complianceChecker.checkERC721();
-          }
-        }
+        const checkResults = complianceChecker.checkCompliance();
+        complianceResults.push(...checkResults);
+
+        // Add compliance recommendations
+        checkResults
+          .filter((result) => !result.compliant)
+          .forEach((issue) => {
+            recommendations.push({
+              type: "compliance",
+              description: `Non-compliant with ${issue.standard}: ${issue.details}`,
+              impact: "medium",
+              suggestion: issue.recommendation,
+            });
+          });
       }
 
-      // Run anomaly detection (via API call to Python service)
+      // Run anomaly detection if enabled
       if (options.anomalyDetection) {
-        logger.info(`Running anomaly detection for analysis ${analysisId}`);
-        try {
-          const anomalyResponse = await axios.post(
-            this.aiDetectorUrl,
-            {
-              contract_code: sourceCode,
-            },
-            { timeout: 30000 }
-          );
+        const anomalyDetector = new AnomalyDetector(sourceCode);
+        resources.push(anomalyDetector);
 
-          if (anomalyResponse.data && anomalyResponse.data.status) {
-            anomalyResults = {
-              isAnomaly: anomalyResponse.data.status.includes("Anomaly"),
-              anomalyScore: anomalyResponse.data.anomaly_score || 0,
-              anomalyDescription: anomalyResponse.data.analysis_summary || "",
-              anomalyFactors: anomalyResponse.data.anomaly_factors || [],
-              recommendations: anomalyResponse.data.recommendation
-                ? [anomalyResponse.data.recommendation]
-                : [],
-            };
-          } else {
-            logger.warn(
-              `Anomaly detection returned incomplete data for analysis ${analysisId}`
-            );
+        const anomalies = await anomalyDetector.detectAnomalies();
+
+        // Add any detected anomalies to vulnerabilities
+        anomalies.forEach((anomaly) => {
+          vulnerabilities.push({
+            type: "anomaly",
+            severity: anomaly.confidence > 0.8 ? "high" : "medium",
+            description: `Potential anomaly detected: ${anomaly.description}`,
+            line: anomaly.line,
+            function: anomaly.function,
+          });
+
+          // Update risk rating based on anomaly confidence
+          if (anomaly.confidence > 0.9 && overallRiskRating !== "critical") {
+            overallRiskRating = "high";
           }
-        } catch (error) {
-          if (axios.isAxiosError(error)) {
-            if (error.response) {
-              // The server responded with a status code outside the 2xx range
-              logger.error(
-                `Anomaly detection failed with status: ${error.response.status}`,
-                {
-                  data: error.response.data,
-                  analysisId,
-                }
-              );
-            } else if (error.request) {
-              // The request was made but no response was received
-              logger.error(
-                `Anomaly detection timed out for analysis ${analysisId}`,
-                {
-                  timeoutMs: 30000,
-                }
-              );
-            } else {
-              // Something happened in setting up the request
-              logger.error(
-                `Error setting up anomaly detection request: ${error.message}`
-              );
-            }
-          } else {
-            // Handle non-Axios errors
-            logger.error(
-              `Unknown error in anomaly detection: ${
-                error instanceof Error ? error.message : String(error)
-              }`
-            );
-          }
-        }
+        });
       }
 
-      // Collect recommendations from all sources
-      if (vulnerabilities.length > 0) {
-        recommendations.push(
-          "Fix security vulnerabilities, prioritizing Critical and High severity issues."
-        );
-
-        // Add specific recommendations for high severity vulnerabilities
-        const criticalAndHighVulns = vulnerabilities.filter(
-          (v) => v.severity === "Critical" || v.severity === "High"
-        );
-
-        if (criticalAndHighVulns.length > 0) {
-          for (const vuln of criticalAndHighVulns.slice(0, 3)) {
-            // Limit to 3 top issues
-            recommendations.push(`${vuln.name}: ${vuln.recommendation}`);
-          }
-        }
-      }
-
-      if (gasIssues.length > 0) {
-        recommendations.push(
-          "Implement gas optimizations to reduce deployment and transaction costs."
-        );
-      }
-
-      // Add compliance-specific recommendations
-      for (const [standard, result] of Object.entries(complianceResults)) {
-        if (!result.compliant && result.recommendations.length > 0) {
-          recommendations.push(
-            `${standard.toUpperCase()} compliance: ${result.recommendations[0]}`
-          );
-        }
-      }
-
-      // Add anomaly detection recommendations
-      if (anomalyResults && anomalyResults.recommendations) {
-        recommendations.push(...anomalyResults.recommendations);
-      }
-
-      // Determine overall risk rating
-      const riskRating = this.calculateOverallRiskRating(vulnerabilities);
-
-      // Update analysis record
+      // Update analysis with results
       await Analysis.findByIdAndUpdate(analysisId, {
-        status: "completed",
         vulnerabilities,
         gasIssues,
         complianceResults,
-        anomalyResults,
-        overallRiskRating: riskRating,
         recommendations,
+        overallRiskRating,
+        status: "completed",
         completedAt: new Date(),
       });
-
-      // Update contract status
-      try {
-        const analysisObj = await Analysis.findById(analysisId);
-        if (!analysisObj) {
-          logger.error(
-            `Analysis ${analysisId} not found when updating contract`
-          );
-          return;
-        }
-
-        if (!analysisObj.contractId) {
-          logger.error(`Analysis ${analysisId} has no associated contract ID`);
-          return;
-        }
-
-        const contractUpdateResult = await Contract.findByIdAndUpdate(
-          analysisObj.contractId.toString(),
-          {
-            status: "analyzed",
-            lastAnalyzed: new Date(),
-          }
-        );
-
-        if (!contractUpdateResult) {
-          logger.warn(
-            `Contract ${analysisObj.contractId} not found during update after analysis`
-          );
-        }
-      } catch (updateError) {
-        logger.error(
-          `Failed to update contract after analysis ${analysisId}:`,
-          updateError
-        );
-      }
 
       logger.info(`Analysis ${analysisId} completed successfully`);
     } catch (error) {
-      logger.error(`Error in analysis process for ${analysisId}:`, error);
+      logger.error(`Error processing analysis ${analysisId}:`, error);
 
-      // Update analysis record with error status
+      // Update analysis with error
       await Analysis.findByIdAndUpdate(analysisId, {
         status: "failed",
-        completedAt: new Date(),
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      // Also update contract status
-      const analysisObj = await Analysis.findById(analysisId);
-      if (analysisObj && analysisObj.contractId) {
-        await Contract.findByIdAndUpdate(analysisObj.contractId, {
-          status: "failed",
-        });
+      throw new ApiError(
+        500,
+        `Analysis processing failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      // Clean up all resources regardless of success or failure
+      for (const resource of resources) {
+        try {
+          // Try each possible cleanup method
+          if (typeof resource.dispose === "function") {
+            resource.dispose();
+          } else if (typeof resource.cleanup === "function") {
+            resource.cleanup();
+          } else if (typeof resource.close === "function") {
+            resource.close();
+          }
+        } catch (cleanupError) {
+          // Log but don't throw cleanup errors
+          logger.warn(
+            `Error cleaning up resource during analysis:`,
+            cleanupError
+          );
+        }
       }
     }
   }
 
   /**
-   * Get analysis results
+   * Get analysis results by contract ID
    */
   public async getAnalysisResults(
     contractId: string
   ): Promise<IAnalysis | null> {
     try {
       return await Analysis.findOne({ contractId }).sort({ createdAt: -1 });
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+    } catch (error) {
       logger.error(
-        `Error getting analysis results for contract ${contractId}: ${errorMessage}`
+        `Error getting analysis results for contract ${contractId}:`,
+        error
       );
-
-      if (error instanceof Error) {
-        throw new ApiError(
-          500,
-          `Failed to retrieve analysis results: ${error.message}`
-        );
-      }
       throw new ApiError(
         500,
-        "Failed to retrieve analysis results due to an unknown error"
+        `Failed to retrieve analysis results: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }
@@ -472,6 +521,7 @@ export class AnalysisService {
       return "Informational";
     }
   }
+
   /**
    * Get analysis status
    */

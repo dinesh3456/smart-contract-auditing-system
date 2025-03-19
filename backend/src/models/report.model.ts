@@ -1,4 +1,3 @@
-// backend/src/models/report.model.ts
 import mongoose, { Document, Schema } from "mongoose";
 
 export enum ReportFormat {
@@ -40,6 +39,7 @@ const ReportSchema = new Schema(
     filePaths: {
       type: Map,
       of: String,
+      default: new Map(),
     },
     availableFormats: [
       {
@@ -54,5 +54,22 @@ const ReportSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Helper methods for working with filePaths
+ReportSchema.methods.setFilePath = function (
+  format: ReportFormat,
+  path: string
+) {
+  if (!this.filePaths) {
+    this.filePaths = new Map();
+  }
+  this.filePaths.set(format, path);
+};
+
+ReportSchema.methods.getFilePath = function (
+  format: ReportFormat
+): string | undefined {
+  return this.filePaths?.get(format);
+};
 
 export const Report = mongoose.model<IReport>("Report", ReportSchema);

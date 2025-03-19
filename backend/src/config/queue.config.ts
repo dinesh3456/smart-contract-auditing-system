@@ -53,17 +53,37 @@ analysisQueue.add(
   }
 );
 
+// Add a check to only remove analyses without associated reports
 analysisQueue.process("cleanup-old-records", async () => {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - 30); // 30 days ago
 
-  // Clean up old completed analyses
-  await Analysis.deleteMany({
-    status: "completed",
-    completedAt: { $lt: cutoffDate },
-  });
+  // Find analyses that have no associated reports
+  const analysesToDelete = await Analysis.aggregate([
+    {
+      $match: {
+        status: "completed",
+        completedAt: { $lt: cutoffDate },
+      },
+    },
+    {
+      $lookup: {
+        from: "reports",
+        localField: "_id",
+        foreignField: "analysisId",
+        as: "reports",
+      },
+    },
+    {
+      $match: { reports: { $size: 0 } },
+    },
+  ]);
 
-  logger.info("Cleaned up old analysis records");
+  // Delete only analyses with no reports
+  const ids = analysesToDelete.map((a) => a._id);
+  await Analysis.deleteMany({ _id: { $in: ids } });
+
+  logger.info(`Cleaned up ${ids.length} orphaned analysis records`);
 });
 
 // Enhanced error handling for analysis queue

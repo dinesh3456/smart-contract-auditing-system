@@ -195,14 +195,15 @@ const Navbar: React.FC = () => {
 
       {isAuthenticated ? (
         <Box sx={{ position: "absolute", bottom: 0, width: "100%", p: 2 }}>
-          <GradientButton
+          <Button
             variant="contained"
+            color="primary"
             fullWidth
             onClick={handleLogout}
             startIcon={<Person />}
           >
             Logout
-          </GradientButton>
+          </Button>
         </Box>
       ) : (
         <Box
@@ -211,9 +212,9 @@ const Navbar: React.FC = () => {
             bottom: 0,
             width: "100%",
             p: 2,
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr", // Two equal columns
+            gap: 2,
           }}
         >
           <Button
@@ -224,21 +225,21 @@ const Navbar: React.FC = () => {
               handleDrawerToggle();
             }}
             startIcon={<Login />}
-            sx={{ width: "48%" }}
           >
             Login
           </Button>
-          <GradientButton
+
+          <Button
             variant="contained"
+            color="primary"
             onClick={() => {
               navigate("/register");
               handleDrawerToggle();
             }}
             startIcon={<AppRegistration />}
-            sx={{ flex: 1 }}
           >
             Register
-          </GradientButton>
+          </Button>
         </Box>
       )}
     </Box>
@@ -417,6 +418,11 @@ const Navbar: React.FC = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.3 }}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
                   >
                     <Button
                       component={Link}

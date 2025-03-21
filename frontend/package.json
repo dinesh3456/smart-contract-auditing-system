@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc -b"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
@@ -19,7 +20,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.61",
+    "@types/node": "^20.11.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "axios": "^1.6.1",

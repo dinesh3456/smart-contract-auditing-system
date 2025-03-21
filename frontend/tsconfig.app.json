@@ -7,12 +7,22 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    "composite": true,
+
+    "outDir": "./dist",
+
+    "rootDir": "./src",
+
+    "allowSyntheticDefaultImports": true,
+
+    "resolveJsonModule": true,
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
+    "noEmit": false,
     "jsx": "react-jsx",
 
     /* Linting */
@@ -20,6 +30,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "extends": "./tsconfig.json",
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"]

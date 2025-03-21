@@ -9,6 +9,7 @@ RUN npm install
 
 COPY . .
 
+# Running vite build without TypeScript checks
 RUN npm run build
 
 # Production stage

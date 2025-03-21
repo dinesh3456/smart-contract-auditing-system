@@ -1,10 +1,36 @@
 import * as fs from "fs";
 import * as path from "path";
 import PDFDocument from "pdfkit";
-import { VulnerabilityFinding } from "../../../analysis-engine/src/analyzers/SecurityScanner";
-import { GasIssue } from "../../../analysis-engine/src/analyzers/GasOptimizer";
-import { ComplianceResult } from "../../../compliance-checker/src/standards/ERC20Checker";
+// Define these types locally instead of importing from other services
+interface VulnerabilityFinding {
+  id: string;
+  name: string;
+  description: string;
+  severity: string;
+  location: {
+    line: number;
+    file?: string;
+  };
+  details: string;
+  recommendation: string;
+}
 
+interface GasIssue {
+  id: string;
+  description: string;
+  location: {
+    line: number;
+    file?: string;
+  };
+  gasSaved: string;
+  recommendation: string;
+}
+
+interface ComplianceResult {
+  compliant: boolean;
+  missingRequirements: string[];
+  recommendations: string[];
+}
 export interface AuditReportData {
   contractName: string;
   contractAddress?: string;

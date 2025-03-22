@@ -126,8 +126,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const res = await axios.post("/api/users/login", { email, password });
-
+      const res = await axios.post(`${config.apiUrl}/users/login`, {
+        email,
+        password,
+      });
       // Store token in localStorage
       localStorage.setItem("token", res.data.token);
 

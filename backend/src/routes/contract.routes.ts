@@ -20,7 +20,7 @@ router.post(
   "/upload",
   authenticate,
   upload.single("contract"),
-  contractController.uploadContract
+  contractController.uploadContract as any
 );
 router.get("/", authenticate, contractController.getUserContracts);
 router.get("/:id", authenticate, contractController.getContractById);

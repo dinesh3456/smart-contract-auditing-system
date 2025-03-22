@@ -5,23 +5,25 @@ import { ContractService } from "../services/contract.service";
 import { AnalysisService } from "../services/analysis.service";
 import { validateContract } from "../utils/validator";
 import { logger } from "../utils/logger";
+import * as multer from "multer";
 
-// Define multer file type for clarity
-interface MulterFile {
-  fieldname: string;
-  originalname: string;
-  encoding: string;
-  mimetype: string;
-  size: number;
-  destination: string;
-  filename: string;
-  path: string;
-  buffer?: Buffer;
-}
+// // Define multer file type for clarity
+// interface MulterFile {
+//   fieldname: string;
+//   originalname: string;
+//   encoding: string;
+//   mimetype: string;
+//   size: number;
+//   destination: string;
+//   filename: string;
+//   path: string;
+//   buffer?: Buffer;
+//   stream: Readable;
+// }
 
 // Special interface for the upload endpoint only
 interface RequestWithFile extends Request {
-  file: MulterFile;
+  file: Express.Multer.File;
   user: {
     id: string;
     [key: string]: any;
@@ -41,7 +43,7 @@ export class ContractController {
    * Upload a new smart contract
    */
   public uploadContract = async (
-    req: Request,
+    req: RequestWithFile,
     res: Response
   ): Promise<void> => {
     try {

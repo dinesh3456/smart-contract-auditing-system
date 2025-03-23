@@ -1,0 +1,77 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "D:\\Blockchain Projects\\Smart contract auditing system\\analysis-engine\\test\\contracts\\GasOptimizations.sol": {
+      "lastModificationDate": 1742713686273,
+      "contentHash": "81ffd46dd4a45a23fa8d31ac6e3ae80c",
+      "sourceName": "test/contracts/GasOptimizations.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "GasWaster"
+      ]
+    },
+    "D:\\Blockchain Projects\\Smart contract auditing system\\analysis-engine\\test\\contracts\\Reentrancy.sol": {
+      "lastModificationDate": 1742718645328,
+      "contentHash": "363d8cfc108da21273eb62bba399e104",
+      "sourceName": "test/contracts/Reentrancy.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ReentrancyVulnerable"
+      ]
+    }
+  }
+}

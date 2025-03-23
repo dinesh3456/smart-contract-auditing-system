@@ -254,6 +254,11 @@ export class AnalysisService {
         throw new ApiError(404, `Contract ${contractId} not found`);
       }
 
+      // Check if contract has source code
+      if (!contract.sourceCode) {
+        throw new ApiError(400, `Contract ${contractId} has no source code`);
+      }
+
       // Check service health if anomaly detection is requested
       if (options.anomalyDetection) {
         const isHealthy = await this.checkServiceHealth();
@@ -268,13 +273,13 @@ export class AnalysisService {
       // Create a new analysis record with proper typing
       const analysis = new Analysis({
         contractId: new Types.ObjectId(contractId),
-        status: "queued" as AnalysisStatus,
+        status: "pending" as AnalysisStatus, // Change from "queued" to "pending" to match enum
         startedAt: new Date(),
         vulnerabilities: [] as SecurityVulnerability[],
         gasIssues: [] as GasIssue[],
         complianceResults: {} as Record<string, ComplianceResult>,
         recommendations: [] as string[],
-      }) as IAnalysis & { _id: Types.ObjectId }; // Add explicit typing here
+      }) as IAnalysis & { _id: Types.ObjectId };
 
       await analysis.save();
 
@@ -286,6 +291,8 @@ export class AnalysisService {
         options,
       });
 
+      logger.info(`Analysis job added to queue for contract ${contractId}`);
+
       // Return the analysis ID as string
       return analysis._id.toString();
     } catch (error) {
@@ -293,7 +300,16 @@ export class AnalysisService {
         `Error starting analysis for contract ${contractId}:`,
         error
       );
-      throw error;
+      // Re-throw as ApiError to ensure proper handling
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        500,
+        `Failed to start analysis: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 

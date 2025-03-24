@@ -1,4 +1,6 @@
 import * as parser from "@solidity-parser/parser";
+import { ERC20Checker } from "./standards/ERC20Checker";
+import { ERC721Checker } from "./standards/ERC721Checker";
 
 export interface ComplianceResult {
   standard: string;
@@ -223,6 +225,8 @@ export class ComplianceChecker {
     };
   }
 }
+
+export { ERC20Checker, ERC721Checker };
 
 // Example usage:
 // const checker = new ComplianceChecker(contractSourceCode);

@@ -61,11 +61,25 @@ class SecurityScanner implements DisposableResource {
   private scanner: any;
 
   constructor(private readonly sourceCode: string) {
-    // Import the actual implementation from analysis-engine
-    const {
-      SecurityScanner: EngineScanner,
-    } = require("../../analysis-engine/src/analyzers/SecurityScanner");
-    this.scanner = new EngineScanner(sourceCode);
+    try {
+      // Import from the main index.ts file
+      const AnalysisEngine = require("analysis-engine");
+      this.scanner = new AnalysisEngine.SecurityScanner(
+        sourceCode,
+        "contract.sol"
+      );
+    } catch (error) {
+      logger.error(
+        `Error initializing SecurityScanner: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      throw new Error(
+        `Failed to initialize security scanner: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   scan(): SecurityVulnerability[] {
@@ -92,10 +106,25 @@ class GasOptimizer implements DisposableResource {
   private optimizer: any;
 
   constructor(private readonly sourceCode: string) {
-    const {
-      GasOptimizer: EngineOptimizer,
-    } = require("../../analysis-engine/src/analyzers/GasOptimizer");
-    this.optimizer = new EngineOptimizer(sourceCode);
+    try {
+      // Import from the main index.ts file
+      const AnalysisEngine = require("analysis-engine");
+      this.optimizer = new AnalysisEngine.GasOptimizer(
+        sourceCode,
+        "contract.sol"
+      );
+    } catch (error) {
+      logger.error(
+        `Error initializing GasOptimizer: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      throw new Error(
+        `Failed to initialize gas optimizer: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   analyze(): GasIssue[] {
@@ -115,55 +144,52 @@ class ComplianceChecker implements DisposableResource {
   private sourceCode: string;
   private standards: string[];
   private checkers: any[] = [];
+  private results: any = {};
 
   constructor(sourceCode: string, standards: string[]) {
     this.sourceCode = sourceCode;
     this.standards = standards;
+    this.checkStandards();
+  }
+
+  private checkStandards() {
+    for (const standard of this.standards) {
+      try {
+        if (standard.toLowerCase() === "erc20") {
+          const {
+            ERC20Checker,
+          } = require("compliance-checker/dist/standards/ERC20Checker");
+          const checker = new ERC20Checker(this.sourceCode);
+          this.checkers.push(checker);
+          this.results["erc20"] = checker.checkCompliance();
+        } else if (standard.toLowerCase() === "erc721") {
+          const {
+            ERC721Checker,
+          } = require("compliance-checker/dist/standards/ERC721Checker");
+          const checker = new ERC721Checker(this.sourceCode);
+          this.checkers.push(checker);
+          this.results["erc721"] = checker.checkCompliance();
+        }
+      } catch (error) {
+        logger.error(`Error checking compliance with ${standard}:`, error);
+        this.results[standard.toLowerCase()] = {
+          standard,
+          compliant: false,
+          missingRequirements: [
+            `Error checking compliance: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          ],
+          recommendations: [
+            "Please check your contract implementation against the standard specification.",
+          ],
+        };
+      }
+    }
   }
 
   checkCompliance(): any[] {
-    const results = [];
-
-    for (const standard of this.standards) {
-      try {
-        let checker;
-        if (standard === "ERC20") {
-          const {
-            ERC20Checker,
-          } = require("../../compliance-checker/src/standards/ERC20Checker");
-          checker = new ERC20Checker(this.sourceCode);
-        } else if (standard === "ERC721") {
-          const {
-            ERC721Checker,
-          } = require("../../compliance-checker/src/standards/ERC721Checker");
-          checker = new ERC721Checker(this.sourceCode);
-        } else {
-          // Skip unknown standards
-          logger.warn(
-            `Unknown standard: ${standard}, skipping compliance check`
-          );
-          continue;
-        }
-
-        this.checkers.push(checker);
-        const result = checker.checkCompliance();
-        result.standard = standard;
-        results.push(result);
-      } catch (error) {
-        logger.error(`Error checking compliance with ${standard}:`, error);
-        results.push({
-          standard,
-          compliant: false,
-          details: `Error checking compliance: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-          recommendation:
-            "Please check your contract implementation against the standard specification.",
-        });
-      }
-    }
-
-    return results;
+    return Object.values(this.results);
   }
 
   dispose() {
@@ -234,7 +260,16 @@ export class AnalysisService {
       });
       return response.status === 200 && response.data?.status === "healthy";
     } catch (error) {
-      logger.error("AI Detector service health check failed:", error);
+      // Safely log error without circular references
+      if (error instanceof Error) {
+        logger.error(
+          `AI Detector service health check failed: ${error.message}`
+        );
+      } else {
+        logger.error(
+          `AI Detector service health check failed: ${String(error)}`
+        );
+      }
       return false;
     }
   }
@@ -273,7 +308,7 @@ export class AnalysisService {
       // Create a new analysis record with proper typing
       const analysis = new Analysis({
         contractId: new Types.ObjectId(contractId),
-        status: "pending" as AnalysisStatus, // Change from "queued" to "pending" to match enum
+        status: "pending" as AnalysisStatus,
         startedAt: new Date(),
         vulnerabilities: [] as SecurityVulnerability[],
         gasIssues: [] as GasIssue[],
@@ -283,27 +318,65 @@ export class AnalysisService {
 
       await analysis.save();
 
-      // Add job to the queue
-      await analysisQueue.add("process-analysis", {
-        contractId,
-        analysisId: analysis._id.toString(),
-        sourceCode: contract.sourceCode,
-        options,
-      });
+      try {
+        // Add job to the queue with timeout
+        await Promise.race([
+          analysisQueue.add("process-analysis", {
+            contractId,
+            analysisId: analysis._id.toString(),
+            sourceCode: contract.sourceCode,
+            options,
+          }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Queue add operation timed out")),
+              5000
+            )
+          ),
+        ]);
 
-      logger.info(`Analysis job added to queue for contract ${contractId}`);
+        logger.info(`Analysis job added to queue for contract ${contractId}`);
+      } catch (queueError) {
+        logger.error(`Error adding analysis to queue: ${queueError}`);
+        // Update analysis status to reflect queue failure
+        await Analysis.findByIdAndUpdate(analysis._id, {
+          status: "failed" as AnalysisStatus,
+          error: `Queue operation failed: ${
+            queueError instanceof Error
+              ? queueError.message
+              : String(queueError)
+          }`,
+        });
+
+        throw new ApiError(
+          500,
+          `Failed to queue analysis job: Queue service may be unavailable`
+        );
+      }
 
       // Return the analysis ID as string
       return analysis._id.toString();
     } catch (error) {
-      logger.error(
-        `Error starting analysis for contract ${contractId}:`,
-        error
-      );
+      // Safely log error without circular references
+      if (error instanceof Error) {
+        logger.error(
+          `Error starting analysis for contract ${contractId}: ${error.message}`,
+          {
+            name: error.name,
+            stack: error.stack,
+          }
+        );
+      } else {
+        logger.error(
+          `Error starting analysis for contract ${contractId}: ${String(error)}`
+        );
+      }
+
       // Re-throw as ApiError to ensure proper handling
       if (error instanceof ApiError) {
         throw error;
       }
+
       throw new ApiError(
         500,
         `Failed to start analysis: ${
@@ -336,7 +409,7 @@ export class AnalysisService {
     }
 
     const recommendations: Recommendation[] = [];
-    const complianceResults = [];
+    const complianceResults: Record<string, any> = {};
     let overallRiskRating = "low";
 
     const resources: DisposableResource[] = [];
@@ -394,17 +467,31 @@ export class AnalysisService {
         resources.push(complianceChecker);
 
         const checkResults = complianceChecker.checkCompliance();
-        complianceResults.push(...checkResults);
+
+        // Instead of pushing to an array, add items to the object with string keys
+        checkResults.forEach((result) => {
+          if (result.standard) {
+            complianceResults[result.standard.toLowerCase()] = result;
+          }
+        });
 
         // Add compliance recommendations
-        checkResults
+        // Update this section
+        Object.values(complianceResults)
           .filter((result) => !result.compliant)
           .forEach((issue) => {
+            // Create a more detailed description that includes all important information
+            const missingReqs = issue.missingRequirements
+              ? `Missing: ${issue.missingRequirements.join(", ")}`
+              : "";
+
             recommendations.push({
               type: "compliance",
-              description: `Non-compliant with ${issue.standard}: ${issue.details}`,
+              description: `Non-compliant with ${issue.standard}: ${missingReqs}`,
               impact: "medium",
-              suggestion: issue.recommendation,
+              suggestion: issue.recommendations
+                ? issue.recommendations.join("; ")
+                : "Implement all required functions and events for this standard",
             });
           });
       }

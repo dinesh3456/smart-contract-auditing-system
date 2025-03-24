@@ -1,7 +1,7 @@
 {
   "name": "analysis-engine",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",

@@ -15,6 +15,18 @@ export interface IVulnerability {
   recommendation: string;
 }
 
+const RecommendationSchema = new Schema(
+  {
+    type: String,
+    description: String,
+    impact: String,
+    line: Number,
+    suggestion: String,
+    function: String,
+  },
+  { _id: false }
+);
+
 export interface IGasIssue {
   id: string;
   description: string;
@@ -39,7 +51,7 @@ export interface IAnomalyResult {
   anomalyScore: number;
   anomalyDescription: string;
   anomalyFactors?: any[];
-  recommendations?: string[];
+  recommendations: string[];
 }
 
 export type AnalysisStatus = "pending" | "processing" | "completed" | "failed";
@@ -145,7 +157,7 @@ const AnalysisSchema: Schema = new Schema(
       type: String,
       enum: ["Critical", "High", "Medium", "Low", "Informational"],
     },
-    recommendations: [String],
+    recommendations: [RecommendationSchema],
     startedAt: {
       type: Date,
       default: Date.now,

@@ -2,11 +2,22 @@ import Queue from "bull";
 import { logger } from "../utils/logger";
 import { Analysis } from "../models/analysis.model"; // Import Analysis model
 
-// Create queues
+// Create the analysis job queue with enhanced configuration
 export const analysisQueue = new Queue("contract-analysis", {
   redis: {
     host: process.env.REDIS_HOST || "localhost",
     port: parseInt(process.env.REDIS_PORT || "6379", 10),
+    retryStrategy: (times: number) => {
+      if (times > 10) {
+        logger.error("Redis connection failed repeatedly, giving up");
+        return null; // Stop retrying
+      }
+      const delay = Math.min(times * 500, 5000);
+      logger.warn(
+        `Redis connection attempt ${times} failed, retrying in ${delay}ms`
+      );
+      return delay;
+    },
   },
   defaultJobOptions: {
     attempts: 3,
@@ -43,6 +54,7 @@ export const reportQueue = new Queue("report-generation", {
   },
 });
 
+// Schedule cleanup job
 analysisQueue.add(
   "cleanup-old-records",
   {},

@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GasOptimizer = exports.SecurityScanner = exports.SmartContractAnalyzer = void 0;
 exports.analyzeContract = analyzeContract;
+// @ts-ignore
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const solc_1 = __importDefault(require("solc"));

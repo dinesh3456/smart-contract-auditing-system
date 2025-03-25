@@ -572,9 +572,32 @@ export class ReportService {
     this.reportsDir =
       process.env.REPORTS_DIR || path.join(__dirname, "../../reports");
 
-    // Ensure reports directory exists
+    // Ensure reports directory exists with proper permissions
     if (!fs.existsSync(this.reportsDir)) {
-      fs.mkdirSync(this.reportsDir, { recursive: true });
+      try {
+        fs.mkdirSync(this.reportsDir, { recursive: true, mode: 0o755 });
+        logger.info(`Created reports directory: ${this.reportsDir}`);
+      } catch (error) {
+        logger.error(
+          `Failed to create reports directory: ${this.reportsDir}`,
+          error
+        );
+        throw new Error(`Failed to create reports directory: ${error}`);
+      }
+    } else {
+      try {
+        // Test write permissions by creating a test file
+        const testFile = path.join(this.reportsDir, ".test-write-access");
+        fs.writeFileSync(testFile, "test");
+        fs.unlinkSync(testFile);
+        logger.info(`Reports directory is writable: ${this.reportsDir}`);
+      } catch (error) {
+        logger.error(
+          `Reports directory is not writable: ${this.reportsDir}`,
+          error
+        );
+        throw new Error(`Reports directory is not writable: ${error}`);
+      }
     }
   }
 

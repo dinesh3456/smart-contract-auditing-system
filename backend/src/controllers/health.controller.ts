@@ -56,20 +56,28 @@ export class HealthController {
         {
           name: "analysis-engine",
           url:
-            process.env.ANALYSIS_ENGINE_URL ||
-            "http://analysis-engine:5001/health",
+            (process.env.ANALYSIS_ENGINE_URL ||
+              (process.env.NODE_ENV === "production"
+                ? "http://analysis-engine:5001"
+                : "http://localhost:5001")) + "/health",
           type: "http",
         },
         {
           name: "ai-detector",
-          url: process.env.AI_DETECTOR_URL || "http://ai-detector:5002/health",
+          url:
+            (process.env.AI_DETECTOR_URL ||
+              (process.env.NODE_ENV === "production"
+                ? "http://ai-detector:5002"
+                : "http://localhost:5002")) + "/health",
           type: "http",
         },
         {
           name: "reports-service",
           url:
-            process.env.REPORTS_SERVICE_URL ||
-            "http://reports-service:5003/health",
+            (process.env.REPORTS_SERVICE_URL ||
+              (process.env.NODE_ENV === "production"
+                ? "http://reports-service:5003"
+                : "http://localhost:5003")) + "/health",
           type: "http",
         },
       ];

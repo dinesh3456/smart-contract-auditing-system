@@ -108,3 +108,20 @@ export const authenticate = async (
     }
   }
 };
+
+export const authorize = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Get user from request (assuming it was set by authenticate middleware)
+    const user = (req as any).user;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (roles.includes(user.role)) {
+      next();
+    } else {
+      res.status(403).json({ message: "Forbidden: Insufficient permissions" });
+    }
+  };
+};

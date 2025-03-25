@@ -1,6 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import PDFDocument from "pdfkit";
+import {
+  SecurityScanner,
+  GasOptimizer,
+  SmartContractAnalyzer,
+} from "../../analysis-engine/src";
+
+export { SecurityScanner, GasOptimizer, SmartContractAnalyzer };
 
 export interface ReportData {
   contractName: string;
@@ -21,14 +28,22 @@ export interface VulnerabilityItem {
   severity: "Critical" | "High" | "Medium" | "Low" | "Informational";
   description: string;
   impact: string;
-  location: string;
+  location: {
+    line: number;
+    column?: number;
+    file?: string;
+  };
   recommendation: string;
 }
 
 export interface GasIssueItem {
   id: string;
   description: string;
-  location: string;
+  location: {
+    line: number;
+    column?: number;
+    file?: string;
+  };
   gasSaved: string;
   recommendation: string;
 }

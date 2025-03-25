@@ -208,8 +208,15 @@ class AnomalyDetector implements DisposableResource {
   private aiDetectorUrl: string;
 
   constructor(private readonly sourceCode: string) {
-    this.aiDetectorUrl =
-      process.env.AI_DETECTOR_URL || "http://ai-detector:5002/api/analyze";
+    // Get base URL without endpoint
+    const baseUrl =
+      process.env.AI_DETECTOR_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://ai-detector:5002"
+        : "http://localhost:5002");
+
+    // Append the analyze endpoint
+    this.aiDetectorUrl = `${baseUrl}/api/analyze`;
   }
 
   async detectAnomalies(): Promise<AnomalyResult[]> {
@@ -249,8 +256,12 @@ export class AnalysisService {
   private aiDetectorUrl: string;
 
   constructor() {
+    // Store only the base URL without endpoint
     this.aiDetectorUrl =
-      process.env.AI_DETECTOR_URL || "http://ai-detector:5002/api/analyze";
+      process.env.AI_DETECTOR_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://ai-detector:5002"
+        : "http://localhost:5002");
   }
 
   private async checkServiceHealth(): Promise<boolean> {

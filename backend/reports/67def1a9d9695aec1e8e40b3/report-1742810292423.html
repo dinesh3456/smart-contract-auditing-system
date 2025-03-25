@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Contract Audit Report - TestContract</title>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
+      h1, h2, h3 { color: #333; }
+      .header { text-align: center; margin-bottom: 30px; }
+      .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+      .critical { color: #d32f2f; }
+      .high { color: #f57c00; }
+      .medium { color: #fbc02d; }
+      .low { color: #388e3c; }
+      .informational { color: #1976d2; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      th, td { padding: 10px; border: 1px solid #ddd; }
+      th { background-color: #f2f2f2; }
+      .section { margin-bottom: 30px; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Smart Contract Audit Report</h1>
+      <h2>TestContract</h2>
+      <p>Contract Address: N/A</p>
+      <p>Audit Date: 2025-03-24</p>
+    </div>
+  
+    <div class="summary">
+      <h2>Executive Summary</h2>
+      <p><strong>Overall Risk Rating: </strong><span class="low">low</span></p>
+      <p>This audit identified 3 vulnerabilities and 1 gas optimization opportunities.</p>
+    </div>
+  
+    <div class="section">
+      <h2>Vulnerabilities</h2>
+      
+      <table>
+        <tr>
+          <th>Name</th>
+          <th>Severity</th>
+          <th>Location</th>
+          <th>Recommendation</th>
+        </tr>
+        
+        <tr>
+          <td>Reentrancy</td>
+          <td class="high">High</td>
+          <td>Line 26 in contract.sol</td>
+          <td>Follow the checks-effects-interactions pattern: first perform all checks, then make state changes, and finally interact with external contracts.</td>
+        </tr>
+        
+        <tr>
+          <td>Reentrancy</td>
+          <td class="high">High</td>
+          <td>Line 41 in contract.sol</td>
+          <td>Follow the checks-effects-interactions pattern: first perform all checks, then make state changes, and finally interact with external contracts.</td>
+        </tr>
+        
+        <tr>
+          <td>Reentrancy</td>
+          <td class="high">High</td>
+          <td>Line 63 in contract.sol</td>
+          <td>Follow the checks-effects-interactions pattern: first perform all checks, then make state changes, and finally interact with external contracts.</td>
+        </tr>
+        
+      </table>
+      
+    </div>
+  
+    <div class="section">
+      <h2>Gas Optimization</h2>
+      
+      <table>
+        <tr>
+          <th>Description</th>
+          <th>Location</th>
+          <th>Gas Saved</th>
+          <th>Recommendation</th>
+        </tr>
+        
+        <tr>
+          <td>Loop condition reads array length in each iteration</td>
+          <td>Line 74 in contract.sol</td>
+          <td>Up to 100+ gas per loop iteration</td>
+          <td>Cache array length in a local variable before the loop to save gas.</td>
+        </tr>
+        
+      </table>
+      
+    </div>
+  
+    <div class="section">
+      <h2>Compliance Results</h2>
+      
+      <table>
+        <tr>
+          <th>Standard</th>
+          <th>Status</th>
+          <th>Recommendations</th>
+        </tr>
+        
+        <tr>
+          <td>ERC20</td>
+          <td>Non-compliant</td>
+          <td>Consider inheriting from the OpenZeppelin ERC20 implementation to ensure full compliance., Always emit Transfer and Approval events when token balances or allowances change., The transfer function should emit the Transfer event., Consider adding checks to prevent transfers to the zero address (0x0).</td>
+        </tr>
+        
+        <tr>
+          <td>ERC721</td>
+          <td>Non-compliant</td>
+          <td>Consider inheriting from the OpenZeppelin ERC721 implementation to ensure full compliance., Always emit appropriate events (Transfer, Approval, ApprovalForAll) when state changes., Consider adding reentrancy protection to safeTransferFrom functions to prevent potential reentrancy attacks., Consider adding checks to prevent transfers to the zero address (0x0) to avoid permanent loss of NFTs., Ensure tokenURI and ownerOf functions check that the tokenId exists before returning data., Consider implementing ERC721Metadata interface (name, symbol, tokenURI) for better NFT compatibility., Consider implementing ERC721Enumerable interface for better marketplace and indexer support.</td>
+        </tr>
+        
+      </table>
+      
+    </div>
+  
+    
+  
+    <div class="section">
+      <h2>Recommendations</h2>
+      <ul>
+        <li>[object Object]</li><li>[object Object]</li><li>[object Object]</li>
+      </ul>
+    </div>
+  </body>
+  </html>

@@ -1,11 +1,14 @@
 {
   "name": "analysis-engine",
   "version": "1.0.0",
-  "main": "dist/src/index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "start": "node dist/api.js",
+    "start:cli": "node dist/index.js",
+    "dev": "ts-node src/api.ts",
+    "dev:cli": "ts-node src/index.ts",
+    "analyze": "node dist/index.js",
     "test": "jest"
   },
   "keywords": [],
@@ -14,14 +17,17 @@
   "description": "",
   "dependencies": {
     "@solidity-parser/parser": "^0.19.0",
+    "cors": "^2.8.5",
     "ethers": "^6.13.5",
+    "express": "^4.21.2",
     "solc": "^0.8.28",
     "solidity-ast": "^0.4.59",
     "web3": "^4.16.0"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/chai": "^5.2.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
     "@types/jest": "^29.5.14",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.13.10",

@@ -22,4 +22,15 @@ router.post(
   reportController.generateReport
 );
 
+router.get(
+  "/:contractId/status",
+  authenticate,
+  reportController.getReportStatus
+);
+router.post(
+  "/:contractId/regenerate",
+  authenticate,
+  reportController.regenerateReport
+);
+
 export default router;

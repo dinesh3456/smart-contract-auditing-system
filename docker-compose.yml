@@ -16,6 +16,8 @@ services:
       - "5000:5000"
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/smart-contract-audit
+        - AI_DETECTOR_URL=http://ai-detector:5002
+
       - PORT=5000
       - NODE_ENV=development
     depends_on:
@@ -23,6 +25,8 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+    networks:
+      - smart-contract-audit-network
 
   analysis-engine:
     build: ./analysis-engine
@@ -61,12 +65,16 @@ services:
   ai-detector:
     build: ./ai-detector
     ports:
-      - "5004:5004"
+      - "5002:5002"
+    environment:
+      - PORT=5002
     volumes:
       - ./ai-detector:/app
-      - /app/venv
+      - ./ai-detector/models:/app/models
     depends_on:
       - backend
+    networks:
+      - smart-contract-audit-network
 
   frontend:
     build: ./frontend

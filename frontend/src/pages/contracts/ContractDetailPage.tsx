@@ -1458,25 +1458,32 @@ const ContractDetailPage: React.FC = () => {
 
       {/* Recommendations Section */}
       {analysis &&
-        analysis.recommendations &&
-        Array.isArray(analysis.recommendations) &&
-        analysis.recommendations.length > 0 && (
-          <AnimatedElement animation="slideUp" delay={0.2}>
-            <GlassCard sx={{ mt: 4, p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Recommendations
+  analysis.recommendations &&
+  Array.isArray(analysis.recommendations) &&
+  analysis.recommendations.length > 0 && (
+    <AnimatedElement animation="slideUp" delay={0.2}>
+      <GlassCard sx={{ mt: 4, p: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Recommendations
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <ul>
+          {analysis.recommendations.map((rec, index) => (
+            <li key={index}>
+              <Typography sx={{ mb: 1 }}>
+                {typeof rec === "string" 
+                  ? rec 
+                  : rec && typeof rec === "object" && "description" in rec
+                    ? `${rec.description}${rec.suggestion ? ` - ${rec.suggestion}` : ""}`
+                    : JSON.stringify(rec)
+                }
               </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <ul>
-                {analysis.recommendations.map((rec, index) => (
-                  <li key={index}>
-                    <Typography sx={{ mb: 1 }}>{rec}</Typography>
-                  </li>
-                ))}
-              </ul>
-            </GlassCard>
-          </AnimatedElement>
-        )}
+            </li>
+          ))}
+        </ul>
+      </GlassCard>
+    </AnimatedElement>
+  )}
 
       {/* Actions Footer */}
       <AnimatedElement animation="slideUp" delay={0.3}>

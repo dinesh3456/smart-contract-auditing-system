@@ -63,12 +63,15 @@ export interface AnalysisResults {
     formattedRecommendations?: string[];
   };
   overallRiskRating?: "Critical" | "High" | "Medium" | "Low" | "Informational";
-  recommendations?:
+  recommendations?: Array<
     | string
     | {
-        description: string;
+        type?: string;
+        description?: string;
+        impact?: string;
         suggestion?: string;
-      };
+      }
+  >;
 }
 
 // Report Interface

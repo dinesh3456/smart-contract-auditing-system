@@ -98,18 +98,29 @@ export class ContractService {
     status: ContractStatus
   ): Promise<IContract | null> {
     try {
-      const updates: any = { status };
-
-      // If status is 'analyzed', update lastAnalyzed timestamp
-      if (status === "analyzed") {
-        updates.lastAnalyzed = new Date();
+      // Validate the status
+      const validStatuses: ContractStatus[] = [
+        "uploaded",
+        "analyzing",
+        "analyzed",
+        "failed",
+      ];
+      if (!validStatuses.includes(status)) {
+        throw new Error(
+          `Invalid status: ${status}. Must be one of: uploaded, analyzing, analyzed, failed`
+        );
       }
 
-      return await Contract.findByIdAndUpdate(contractId, updates, {
-        new: true,
-      });
+      // Update the contract status
+      const updatedContract = await Contract.findByIdAndUpdate(
+        contractId,
+        { status: status },
+        { new: true } // Return the updated document
+      );
+
+      return updatedContract;
     } catch (error) {
-      logger.error(`Error updating contract status for ${contractId}:`, error);
+      logger.error(`Error updating status for contract ${contractId}:`, error);
       throw error;
     }
   }

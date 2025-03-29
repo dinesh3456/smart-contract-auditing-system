@@ -243,18 +243,62 @@ const ContractsPage: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const contractsPerPage = 6;
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
-  // Fetch contracts data
+  const fetchContractsWithRetry = async () => {
+    try {
+      setLoading(true);
+      const result = await ContractService.getContracts();
+      setContracts(result.data);
+      setError("");
+      setRetryCount(0); // Reset retry count on success
+    } catch (err) {
+      console.error(
+        `Error fetching contracts (attempt ${retryCount + 1}/${MAX_RETRIES}):`,
+        err
+      );
+
+      if (retryCount < MAX_RETRIES - 1) {
+        // Retry with exponential backoff
+        setRetryCount((prev) => prev + 1);
+        setTimeout(() => {
+          fetchContractsWithRetry();
+        }, 1000 * Math.pow(2, retryCount)); // 1s, 2s, 4s, etc.
+      } else {
+        setError(
+          "Failed to load contracts after multiple attempts. Please try again later."
+        );
+      }
+    } finally {
+      if (retryCount >= MAX_RETRIES - 1) {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Use this in your initial useEffect
+  useEffect(() => {
+    fetchContractsWithRetry();
+  }, []);
+
+  // Fix the polling in ContractsPage
   useEffect(() => {
     const fetchContracts = async () => {
       try {
         setLoading(true);
-        const result = await ContractService.getContracts();
-        setContracts(result.data);
         setError("");
+
+        const result = await ContractService.getContracts();
+
+        if (!result || !result.data) {
+          throw new Error("Invalid response format from server");
+        }
+
+        setContracts(result.data);
       } catch (err) {
+        console.error("Error fetching contracts:", err);
         setError("Failed to load contracts. Please try again later.");
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -411,7 +455,22 @@ const ContractsPage: React.FC = () => {
       </AnimatedElement>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setRetryCount(0);
+                fetchContractsWithRetry();
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}

@@ -8,8 +8,17 @@ import userRoutes from "./routes/user.routes";
 import contractRoutes from "./routes/contract.routes";
 import reportRoutes from "./routes/report.routes";
 import healthRoutes from "./routes/health.routes";
+import { logger } from "./utils/logger";
+import adminRoutes from "./routes/admin.routes";
 
 const app = express();
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
 
 // Middleware
 app.use(cors());
@@ -30,6 +39,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/contracts", contractRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/health", healthRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 // 404 handler
 app.use((_req, res) => {

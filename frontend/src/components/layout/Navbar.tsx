@@ -31,6 +31,7 @@ import {
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import GradientButton from "../common/GradientButton";
+import { useAuth } from "../../context/AuthContext";
 
 interface NavItem {
   title: string;
@@ -48,7 +49,7 @@ const Navbar: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Mock authentication state (replace with actual auth context)
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
 
   // Navigation items
   const navItems: NavItem[] = [
@@ -99,8 +100,7 @@ const Navbar: React.FC = () => {
 
   // Handle logout
   const handleLogout = () => {
-    // Implement logout logic here
-    setIsAuthenticated(false);
+    logout();
     navigate("/login");
   };
 

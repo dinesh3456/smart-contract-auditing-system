@@ -91,9 +91,6 @@ export class ReportController {
   /**
    * Download report in specified format
    */
-  /**
-   * Download report in specified format
-   */
   public downloadReport = async (
     req: AuthenticatedRequest,
     res: Response
@@ -326,6 +323,7 @@ export class ReportController {
           contractAddress: contract.address,
           contractVersion: contract.version,
           auditDate: new Date().toISOString().split("T")[0],
+          auditor: "Smart Contract Audit System", // Add the missing auditor field
           contractContent: contract.sourceCode,
           vulnerabilities: analysis.vulnerabilities,
           gasIssues: analysis.gasIssues,
@@ -338,6 +336,7 @@ export class ReportController {
             : undefined,
           overallRiskRating: analysis.overallRiskRating,
           recommendations: analysis.recommendations,
+          executiveSummary: analysis.executiveSummary || undefined,
         }
       );
 
@@ -440,19 +439,22 @@ export class ReportController {
         return;
       }
 
-      // Generate report (might be async in a real implementation)
+      // Generate report
       const reportJob = await this.reportService.generateReport(
         contractId,
         formats as ReportFormat[],
         {
           contractName: contract.name,
           contractAddress: contract.address,
-          contractVersion: contract.version,
+          contractVersion: contract.version || "1.0.0", // Provide default if not available
           auditDate: new Date().toISOString().split("T")[0],
-          contractContent: contract.sourceCode, // Make sure this matches the ReportData interface
+          auditor: "Smart Contract Audit System", // Add the missing auditor field
+          contractContent: contract.sourceCode,
           vulnerabilities: analysis.vulnerabilities,
           gasIssues: analysis.gasIssues,
           complianceResults: analysis.complianceResults,
+          anomalyResults: analysis.anomalyResults,
+          executiveSummary: analysis.executiveSummary || undefined,
           overallRiskRating: analysis.overallRiskRating,
           recommendations: analysis.recommendations,
         }

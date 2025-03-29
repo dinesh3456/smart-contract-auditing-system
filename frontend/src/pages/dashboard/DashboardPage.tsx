@@ -179,7 +179,19 @@ const RecentContractCard: React.FC<RecentContractCardProps> = ({
 
             {contract.status === "analyzing" && (
               <Box sx={{ width: "100%", mt: 1 }}>
-                <LinearProgress color="warning" />
+                <LinearProgress
+                  color="warning"
+                  variant={contract.progress ? "determinate" : "indeterminate"}
+                  value={contract.progress || 0}
+                />
+                {contract.progress && (
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", textAlign: "right", mt: 0.5 }}
+                  >
+                    {Math.round(contract.progress)}% complete
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>
@@ -203,6 +215,71 @@ const DashboardPage: React.FC = () => {
     totalVulnerabilities: 0,
     highRiskContracts: 0,
   });
+
+  // Function to fetch contracts data
+  const fetchContracts = async () => {
+    try {
+      const result = await ContractService.getContracts(1, 5);
+      setContracts(result.data);
+
+      // Calculate stats from contracts
+      const analyzedContracts = result.data.filter(
+        (c) => c.status === "analyzed"
+      ).length;
+
+      // In a real app, you would fetch these from the API
+      setStats({
+        totalContracts: result.data.length,
+        analyzedContracts,
+        totalVulnerabilities: 12, // This should come from the backend
+        highRiskContracts: 2, // This should come from the backend
+      });
+
+      return result.data;
+    } catch (error) {
+      console.error("Error fetching contracts:", error);
+      return [];
+    }
+  };
+
+  // Initial data loading
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await fetchContracts();
+      setLoading(false);
+    };
+
+    loadInitialData();
+  }, []);
+
+  // Polling for contracts that are being analyzed
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const pollAnalyzingContracts = () => {
+      const hasAnalyzingContracts = contracts.some(
+        (c) => c.status === "analyzing"
+      );
+
+      if (hasAnalyzingContracts) {
+        intervalId = setInterval(async () => {
+          const updatedContracts = await fetchContracts();
+
+          // If no contracts are analyzing anymore, clear the interval
+          if (!updatedContracts.some((c) => c.status === "analyzing")) {
+            clearInterval(intervalId);
+          }
+        }, 5000); // Poll every 5 seconds
+      }
+
+      return () => {
+        if (intervalId) clearInterval(intervalId);
+      };
+    };
+
+    return pollAnalyzingContracts();
+  }, [contracts]);
 
   // Fetch contracts data
   useEffect(() => {

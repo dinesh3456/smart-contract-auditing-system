@@ -17,6 +17,10 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  List,
+  ListItemIcon,
+  ListItemText,
+  ListItem,
 } from "@mui/material";
 import {
   Description as DescriptionIcon,
@@ -30,6 +34,8 @@ import {
   Delete as DeleteIcon,
   VerifiedUser as VerifiedUserIcon,
   DataObject as DataObjectIcon,
+  Refresh as RefreshIcon,
+  LightbulbOutlined,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -128,6 +134,87 @@ const ContractDetailPage: React.FC = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Refresh contract data function with improved error handling
+  const refreshContractData = async (showRefreshIndicator = true) => {
+    if (!id) return;
+
+    try {
+      if (showRefreshIndicator) {
+        setRefreshing(true);
+      }
+
+      setError(""); // Clear any previous errors
+
+      // Fetch contract details
+      const contractData = await ContractService.getContract(id);
+      setContract(contractData);
+
+      // Only fetch analysis for contracts that should have it
+      if (
+        contractData.status === "analyzed" ||
+        contractData.status === "analyzing" ||
+        contractData.status === "failed"
+      ) {
+        try {
+          const analysisData = await ContractService.getAnalysisResults(id);
+          setAnalysis(analysisData);
+
+          // If contract is marked as analyzing but analysis shows complete/failed, update contract state
+          if (
+            contractData.status === "analyzing" &&
+            (analysisData.status === "completed" ||
+              analysisData.status === "failed")
+          ) {
+            // This improves UI synchronization without waiting for polling
+            const newStatus =
+              analysisData.status === "completed" ? "analyzed" : "failed";
+
+            try {
+              // Update contract status in backend
+              await ContractService.updateContractStatus(id, newStatus);
+
+              // Update local state
+              setContract((prev) =>
+                prev ? { ...prev, status: newStatus } : null
+              );
+            } catch (updateErr) {
+              console.warn("Failed to update contract status:", updateErr);
+              // Still update the UI even if the backend update failed
+              setContract((prev) =>
+                prev ? { ...prev, status: newStatus } : null
+              );
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching analysis:", err);
+
+          // Don't immediately show error for analyzing contracts, unless refreshing explicitly
+          if (contractData.status !== "analyzing" || showRefreshIndicator) {
+            setError(
+              `Could not load analysis results: ${
+                err instanceof Error ? err.message : "Unknown error"
+              }`
+            );
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Error fetching contract details:", err);
+      if (err.response?.status === 404) {
+        setError("Contract not found. It may have been deleted.");
+      } else if (err.response?.data?.message) {
+        setError(`Failed to load contract: ${err.response.data.message}`);
+      } else {
+        setError("Failed to load contract details. Please try again later.");
+      }
+    } finally {
+      if (showRefreshIndicator) {
+        setRefreshing(false);
+      }
+    }
+  };
 
   // Fetch contract and analysis data
   useEffect(() => {
@@ -136,29 +223,81 @@ const ContractDetailPage: React.FC = () => {
 
       try {
         setLoading(true);
-
-        // Fetch contract details
-        const contractData = await ContractService.getContract(id);
-        setContract(contractData);
-
-        // Fetch analysis results if contract is analyzed
-        if (
-          contractData.status === "analyzed" ||
-          contractData.status === "analyzing"
-        ) {
-          try {
-            const analysisData = await ContractService.getAnalysisResults(id);
-            setAnalysis(analysisData);
-          } catch (err) {
-            console.error("Error fetching analysis:", err);
-            // Don't set an error for this, as the contract data is still valid
-          }
+        setError("");
+        try {
+          await ContractService.checkHealth(); // You need to implement this method in your api.service.ts
+        } catch (healthErr) {
+          console.error("API health check failed:", healthErr);
+          setError(
+            "The server is currently unavailable. Please try again later."
+          );
+          setLoading(false);
+          return;
         }
 
-        setError("");
-      } catch (err) {
-        console.error("Error fetching contract details:", err);
-        setError("Failed to load contract details. Please try again later.");
+        try {
+          // Fetch contract details
+          const contractData = await ContractService.getContract(id);
+          console.log("Contract data received:", contractData);
+          setContract(contractData);
+
+          // Only fetch analysis if contract exists and has the right status
+          if (
+            contractData.status === "analyzed" ||
+            contractData.status === "analyzing" ||
+            contractData.status === "failed"
+          ) {
+            try {
+              const analysisData = await ContractService.getAnalysisResults(id);
+              console.log("Analysis data received:", analysisData);
+              setAnalysis(analysisData);
+
+              // Update contract status if needed
+              if (
+                contractData.status === "analyzing" &&
+                (analysisData.status === "completed" ||
+                  analysisData.status === "failed")
+              ) {
+                const newStatus =
+                  analysisData.status === "completed" ? "analyzed" : "failed";
+                try {
+                  await ContractService.updateContractStatus(id, newStatus);
+                  setContract({ ...contractData, status: newStatus });
+                } catch (updateErr) {
+                  console.warn("Failed to update contract status:", updateErr);
+                  // Still update local state
+                  setContract({ ...contractData, status: newStatus });
+                }
+              }
+            } catch (analysisErr: any) {
+              console.error("Error fetching analysis:", analysisErr);
+              // For analyzing contracts, don't show error unless explicitly refreshing
+              if (contractData.status !== "analyzing") {
+                setError(
+                  `Analysis data unavailable: ${
+                    analysisErr.message || "Unknown error"
+                  }`
+                );
+              }
+            }
+          }
+        } catch (contractErr: any) {
+          console.error("Error fetching contract:", contractErr);
+
+          // Detailed error handling
+          if (contractErr.message === "Contract not found") {
+            setError("Contract not found. It may have been deleted.");
+          } else if (contractErr.message.includes("Server error")) {
+            setError(
+              "The server encountered an error. Please try again later."
+            );
+          } else {
+            setError(`Could not load contract: ${contractErr.message}`);
+          }
+        }
+      } catch (err: any) {
+        console.error("Unexpected error:", err);
+        setError("An unexpected error occurred. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -166,18 +305,19 @@ const ContractDetailPage: React.FC = () => {
 
     fetchData();
   }, [id]);
-
   // Function to start contract analysis
   const handleStartAnalysis = async () => {
     if (!id) return;
 
     try {
       setAnalysisLoading(true);
-      await ContractService.analyzeContract(id);
+      setError(""); // Clear any previous errors
 
-      // Update contract status
-      const updatedContract = await ContractService.getContract(id);
-      setContract(updatedContract);
+      // Start analysis
+      const response = await ContractService.analyzeContract(id);
+
+      // Set initial processing state immediately for better UX
+      setContract((prev) => (prev ? { ...prev, status: "analyzing" } : null));
 
       // Set analysis to a pending state
       setAnalysis({
@@ -185,48 +325,127 @@ const ContractDetailPage: React.FC = () => {
         vulnerabilities: [],
         gasIssues: [],
         complianceResults: {},
-        recommendations: [],
+        recommendations: undefined,
+        formattedRecommendations: [],
+        error: null,
       });
-    } catch (err) {
+
+      // Update contract status after a short delay to allow backend processing
+      setTimeout(async () => {
+        try {
+          const updatedContract = await ContractService.getContract(id);
+          setContract(updatedContract);
+        } catch (err) {
+          console.warn(
+            "Could not refresh contract immediately after analysis start"
+          );
+        } finally {
+          setAnalysisLoading(false);
+        }
+      }, 1500);
+    } catch (err: any) {
       console.error("Error starting analysis:", err);
-      setError("Failed to start contract analysis. Please try again.");
-    } finally {
       setAnalysisLoading(false);
+
+      // Provide specific error message based on error type
+      if (err.response?.status === 404) {
+        setError("Contract not found. It may have been deleted.");
+      } else if (err.response?.status === 400) {
+        setError(
+          `Analysis couldn't start: ${
+            err.response.data.message || "Invalid contract"
+          }`
+        );
+      } else if (err.response?.data?.message) {
+        setError(`Failed to start analysis: ${err.response.data.message}`);
+      } else {
+        setError("Failed to start contract analysis. Please try again.");
+      }
     }
   };
 
-  // Function to check analysis status periodically
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
+    const MAX_POLLING_TIME = 5 * 60 * 1000; // 5 minutes
+    let pollingStartTime = Date.now();
 
-    if (analysis && analysis.status === "processing") {
+    if (
+      contract?.status === "analyzing" ||
+      (analysis && analysis.status === "processing")
+    ) {
+      // Start polling
       intervalId = setInterval(async () => {
         if (!id) return;
 
-        try {
-          const analysisData = await ContractService.getAnalysisResults(id);
-          setAnalysis(analysisData);
+        // Check if we've been polling too long
+        if (Date.now() - pollingStartTime > MAX_POLLING_TIME) {
+          clearInterval(intervalId);
+          try {
+            await ContractService.updateContractStatus(id, "failed");
+            setContract((prev) =>
+              prev ? { ...prev, status: "failed" } : null
+            );
+            setError(
+              "Analysis is taking longer than expected. The analysis has been marked as failed. You can try again later."
+            );
+          } catch (updateErr) {
+            console.error("Error updating contract status:", updateErr);
+            setError(
+              "Analysis is taking longer than expected. Please refresh the page to check status."
+            );
+          }
+          return;
+        }
 
-          // If analysis is complete, update contract data as well
-          if (
-            analysisData.status === "completed" ||
-            analysisData.status === "failed"
+        // Add the missing polling code here
+        try {
+          // Fetch the latest contract status
+          const updatedContract = await ContractService.getContract(id);
+          setContract(updatedContract);
+
+          // If the contract is still analyzing, check analysis status
+          if (updatedContract.status === "analyzing") {
+            try {
+              const analysisData = await ContractService.getAnalysisResults(id);
+              setAnalysis(analysisData);
+
+              // Update contract status based on analysis status
+              if (
+                analysisData.status === "completed" ||
+                analysisData.status === "failed"
+              ) {
+                const newStatus =
+                  analysisData.status === "completed" ? "analyzed" : "failed";
+                await ContractService.updateContractStatus(id, newStatus);
+                setContract((prev) =>
+                  prev ? { ...prev, status: newStatus } : null
+                );
+
+                // Clear the interval if analysis is complete
+                clearInterval(intervalId);
+              }
+            } catch (analysisErr) {
+              console.log("Analysis still in progress:", analysisErr);
+              // Don't update status or clear interval if we can't fetch analysis yet
+            }
+          } else if (
+            updatedContract.status === "analyzed" ||
+            updatedContract.status === "failed"
           ) {
-            const updatedContract = await ContractService.getContract(id);
-            setContract(updatedContract);
+            // Contract is no longer analyzing, clear the interval
             clearInterval(intervalId);
           }
         } catch (err) {
-          console.error("Error checking analysis status:", err);
-          // Don't clear the interval, keep trying
+          console.error("Error during polling:", err);
+          // Don't clear interval on error to retry
         }
-      }, 5000); // Check every 5 seconds
+      }, 5000);
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [analysis, id]);
+  }, [analysis, contract, id]);
 
   // Function to handle tab change
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -240,7 +459,7 @@ const ContractDetailPage: React.FC = () => {
     try {
       await ContractService.deleteContract(id);
       navigate("/contracts");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting contract:", err);
       setError("Failed to delete contract. Please try again.");
     }
@@ -255,7 +474,7 @@ const ContractDetailPage: React.FC = () => {
       await ReportService.generateReport(id, ["pdf", "markdown", "html"]);
       // Navigate to report page or show success message
       navigate(`/reports/${id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating report:", err);
       setError("Failed to generate report. Please try again.");
     } finally {
@@ -278,6 +497,11 @@ const ContractDetailPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Handle manual refresh
+  const handleRefresh = () => {
+    refreshContractData(true);
+  };
+
   if (loading) {
     return (
       <Box sx={{ my: 4 }}>
@@ -289,7 +513,8 @@ const ContractDetailPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && !contract) {
+    // Show error page only if there's no contract data
     return (
       <Box sx={{ my: 4 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -373,6 +598,19 @@ const ContractDetailPage: React.FC = () => {
                     {new Date(contract.lastAnalyzed).toLocaleDateString()}
                   </Typography>
                 )}
+                <Tooltip title="Refresh contract data">
+                  <IconButton
+                    onClick={handleRefresh}
+                    size="small"
+                    disabled={refreshing}
+                  >
+                    {refreshing ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <RefreshIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </Tooltip>
               </Box>
 
               {contract.description && (
@@ -467,6 +705,38 @@ const ContractDetailPage: React.FC = () => {
         </Box>
       </AnimatedElement>
 
+      {/* Error Alert - Show at top if there's an error but we have contract data */}
+      {error && (
+        <AnimatedElement animation="fadeIn">
+          <Alert
+            severity="error"
+            sx={{ mb: 4 }}
+            action={
+              <>
+                <Button color="inherit" size="small" onClick={handleRefresh}>
+                  Try Again
+                </Button>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => setError("")}
+                >
+                  Dismiss
+                </Button>
+              </>
+            }
+          >
+            <Typography variant="subtitle2">Error Loading Contract</Typography>
+            <Typography variant="body2">{error}</Typography>
+            {/* Add this for easier debugging */}
+            {process.env.NODE_ENV === "development" && (
+              <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
+                Contract ID: {id}
+              </Typography>
+            )}
+          </Alert>
+        </AnimatedElement>
+      )}
       {/* Contract Analysis Status */}
       {contract.status === "analyzing" && (
         <AnimatedElement animation="fadeIn">
@@ -483,6 +753,53 @@ const ContractDetailPage: React.FC = () => {
               few minutes. You can stay on this page to see the results when
               they're ready.
             </Typography>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                If the analysis takes longer than 5 minutes, it will
+                automatically be marked as failed. You can refresh the page or
+                try again later.
+              </Typography>
+            </Box>
+          </GlassCard>
+        </AnimatedElement>
+      )}
+
+      {/* Failed Analysis with Retry Option */}
+      {contract.status === "failed" && (
+        <AnimatedElement animation="fadeIn">
+          <GlassCard
+            sx={{
+              mb: 4,
+              p: 3,
+              borderColor: "error.main",
+              borderWidth: 1,
+              borderStyle: "solid",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="h6" color="error">
+                Analysis Failed
+              </Typography>
+            </Box>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              {analysis?.error ||
+                "The analysis process couldn't be completed. This might be due to contract complexity, server load, or temporary issues."}
+            </Typography>
+            <GradientButton
+              variant="contained"
+              gradient="primary"
+              startIcon={
+                analysisLoading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <StartIcon />
+                )
+              }
+              onClick={handleStartAnalysis}
+              disabled={analysisLoading}
+            >
+              Retry Analysis
+            </GradientButton>
           </GlassCard>
         </AnimatedElement>
       )}
@@ -505,32 +822,47 @@ const ContractDetailPage: React.FC = () => {
               />
 
               {(contract.status === "analyzed" ||
-                contract.status === "analyzing") && (
+                contract.status === "analyzing" ||
+                contract.status === "failed") && (
                 <Tab
                   icon={<BugIcon />}
                   label="Vulnerabilities"
                   {...a11yProps(1)}
-                  disabled={contract.status === "analyzing"}
+                  disabled={
+                    contract.status === "analyzing" ||
+                    (contract.status === "failed" &&
+                      !analysis?.vulnerabilities?.length)
+                  }
                 />
               )}
 
               {(contract.status === "analyzed" ||
-                contract.status === "analyzing") && (
+                contract.status === "analyzing" ||
+                contract.status === "failed") && (
                 <Tab
                   icon={<GasIcon />}
                   label="Gas Optimization"
                   {...a11yProps(2)}
-                  disabled={contract.status === "analyzing"}
+                  disabled={
+                    contract.status === "analyzing" ||
+                    (contract.status === "failed" &&
+                      !analysis?.gasIssues?.length)
+                  }
                 />
               )}
 
               {(contract.status === "analyzed" ||
-                contract.status === "analyzing") && (
+                contract.status === "analyzing" ||
+                contract.status === "failed") && (
                 <Tab
                   icon={<VerifiedUserIcon />}
                   label="Compliance"
                   {...a11yProps(3)}
-                  disabled={contract.status === "analyzing"}
+                  disabled={
+                    contract.status === "analyzing" ||
+                    (contract.status === "failed" &&
+                      !analysis?.complianceResults)
+                  }
                 />
               )}
             </Tabs>
@@ -584,7 +916,8 @@ const ContractDetailPage: React.FC = () => {
 
           {/* Vulnerabilities Tab */}
           {(contract.status === "analyzed" ||
-            contract.status === "analyzing") && (
+            contract.status === "analyzing" ||
+            contract.status === "failed") && (
             <TabPanel value={selectedTab} index={1}>
               {!analysis || contract.status === "analyzing" ? (
                 <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -779,7 +1112,8 @@ const ContractDetailPage: React.FC = () => {
 
           {/* Gas Optimization Tab */}
           {(contract.status === "analyzed" ||
-            contract.status === "analyzing") && (
+            contract.status === "analyzing" ||
+            contract.status === "failed") && (
             <TabPanel value={selectedTab} index={2}>
               {!analysis || contract.status === "analyzing" ? (
                 <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -887,7 +1221,8 @@ const ContractDetailPage: React.FC = () => {
 
           {/* Compliance Tab */}
           {(contract.status === "analyzed" ||
-            contract.status === "analyzing") && (
+            contract.status === "analyzing" ||
+            contract.status === "failed") && (
             <TabPanel value={selectedTab} index={3}>
               {!analysis || contract.status === "analyzing" ? (
                 <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -1033,33 +1368,67 @@ const ContractDetailPage: React.FC = () => {
                                   ))}
                                 </ul>
 
-                                {result.recommendations &&
-                                  result.recommendations.length > 0 && (
-                                    <Box
-                                      sx={{
-                                        mt: 2,
-                                        p: 2,
-                                        bgcolor: "rgba(0, 0, 0, 0.2)",
-                                        borderRadius: 1,
-                                      }}
-                                    >
-                                      <Typography
-                                        variant="subtitle2"
-                                        color="warning.main"
-                                        gutterBottom
-                                      >
-                                        Recommendations
-                                      </Typography>
-                                      <ul style={{ marginTop: 0 }}>
-                                        {result.recommendations.map(
-                                          (rec, i) => (
-                                            <li key={i}>
-                                              <Typography>{rec}</Typography>
-                                            </li>
-                                          )
-                                        )}
-                                      </ul>
-                                    </Box>
+                                {analysis &&
+                                  analysis.recommendations &&
+                                  Array.isArray(analysis.recommendations) &&
+                                  analysis.recommendations.length > 0 && (
+                                    <GlassCard sx={{ mb: 4 }}>
+                                      <Box sx={{ p: 3 }}>
+                                        <Typography
+                                          variant="h6"
+                                          gutterBottom
+                                          fontWeight="bold"
+                                        >
+                                          Recommendations
+                                        </Typography>
+                                        <List>
+                                          {analysis.recommendations &&
+                                            Array.isArray(
+                                              analysis.recommendations
+                                            ) &&
+                                            analysis.recommendations.length >
+                                              0 && (
+                                              <Box>
+                                                {analysis.recommendations.map(
+                                                  (recommendation, index) => (
+                                                    <ListItem
+                                                      key={index}
+                                                      disablePadding
+                                                      sx={{ py: 1 }}
+                                                    >
+                                                      <ListItemIcon>
+                                                        <LightbulbOutlined color="primary" />
+                                                      </ListItemIcon>
+                                                      <ListItemText
+                                                        primary={
+                                                          typeof recommendation ===
+                                                          "string"
+                                                            ? recommendation
+                                                            : recommendation &&
+                                                              typeof recommendation ===
+                                                                "object" &&
+                                                              "description" in
+                                                                recommendation
+                                                            ? `${
+                                                                recommendation.description
+                                                              }${
+                                                                recommendation.suggestion
+                                                                  ? ` - ${recommendation.suggestion}`
+                                                                  : ""
+                                                              }`
+                                                            : JSON.stringify(
+                                                                recommendation
+                                                              )
+                                                        }
+                                                      />
+                                                    </ListItem>
+                                                  )
+                                                )}
+                                              </Box>
+                                            )}
+                                        </List>
+                                      </Box>
+                                    </GlassCard>
                                   )}
                               </Box>
                             </AccordionDetails>
@@ -1090,6 +1459,7 @@ const ContractDetailPage: React.FC = () => {
       {/* Recommendations Section */}
       {analysis &&
         analysis.recommendations &&
+        Array.isArray(analysis.recommendations) &&
         analysis.recommendations.length > 0 && (
           <AnimatedElement animation="slideUp" delay={0.2}>
             <GlassCard sx={{ mt: 4, p: 3 }}>
@@ -1119,8 +1489,15 @@ const ContractDetailPage: React.FC = () => {
             <GradientButton
               variant="contained"
               gradient="secondary"
-              startIcon={<DescriptionIcon />}
+              startIcon={
+                generatingReport ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <DescriptionIcon />
+                )
+              }
               onClick={handleGenerateReport}
+              disabled={generatingReport}
             >
               Generate Report
             </GradientButton>

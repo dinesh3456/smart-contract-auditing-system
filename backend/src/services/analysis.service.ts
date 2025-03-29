@@ -341,7 +341,7 @@ export class AnalysisService {
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error("Queue add operation timed out")),
-              5000
+              15000
             )
           ),
         ]);
@@ -358,6 +358,7 @@ export class AnalysisService {
               : String(queueError)
           }`,
         });
+        await Contract.findByIdAndUpdate(contractId, { status: "uploaded" });
 
         throw new ApiError(
           500,
@@ -368,32 +369,17 @@ export class AnalysisService {
       // Return the analysis ID as string
       return analysis._id.toString();
     } catch (error) {
-      // Safely log error without circular references
-      if (error instanceof Error) {
+      // Update contract status in case of any error
+      try {
+        await Contract.findByIdAndUpdate(contractId, { status: "uploaded" });
+      } catch (updateError) {
         logger.error(
-          `Error starting analysis for contract ${contractId}: ${error.message}`,
-          {
-            name: error.name,
-            stack: error.stack,
-          }
-        );
-      } else {
-        logger.error(
-          `Error starting analysis for contract ${contractId}: ${String(error)}`
+          `Error updating contract status after analysis failure: ${updateError}`
         );
       }
 
-      // Re-throw as ApiError to ensure proper handling
-      if (error instanceof ApiError) {
-        throw error;
-      }
-
-      throw new ApiError(
-        500,
-        `Failed to start analysis: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      // Re-throw the original error
+      throw error;
     }
   }
 
@@ -409,17 +395,7 @@ export class AnalysisService {
 
     const vulnerabilities = [];
     const gasIssues = [];
-    // Define interface for recommendation items
-    interface Recommendation {
-      type: string;
-      description: string;
-      impact: string;
-      line?: number;
-      suggestion: string;
-      function?: string;
-    }
-
-    const recommendations: Recommendation[] = [];
+    const recommendations: string[] = []; // Change to string array
     const complianceResults: Record<string, any> = {};
     let overallRiskRating = "low";
 
@@ -461,13 +437,9 @@ export class AnalysisService {
 
         // Add gas optimization recommendations
         optimizationResults.forEach((issue) => {
-          recommendations.push({
-            type: "gas",
-            description: `Optimize gas usage at line ${issue.location?.line}: ${issue.description}`,
-            impact: "medium",
-            line: issue.location?.line,
-            suggestion: issue.recommendation,
-          });
+          recommendations.push(
+            `Optimize gas usage at line ${issue.location?.line}: ${issue.description} - ${issue.recommendation}`
+          );
         });
       }
 
@@ -487,7 +459,6 @@ export class AnalysisService {
         });
 
         // Add compliance recommendations
-        // Update this section
         Object.values(complianceResults)
           .filter((result) => !result.compliant)
           .forEach((issue) => {
@@ -496,14 +467,13 @@ export class AnalysisService {
               ? `Missing: ${issue.missingRequirements.join(", ")}`
               : "";
 
-            recommendations.push({
-              type: "compliance",
-              description: `Non-compliant with ${issue.standard}: ${missingReqs}`,
-              impact: "medium",
-              suggestion: issue.recommendations
-                ? issue.recommendations.join("; ")
-                : "Implement all required functions and events for this standard",
-            });
+            recommendations.push(
+              `Non-compliant with ${issue.standard}: ${missingReqs}. ${
+                issue.recommendations
+                  ? issue.recommendations.join("; ")
+                  : "Implement all required functions and events for this standard"
+              }`
+            );
           });
       }
 
@@ -517,12 +487,21 @@ export class AnalysisService {
         // Add any detected anomalies to vulnerabilities
         anomalies.forEach((anomaly) => {
           vulnerabilities.push({
-            type: "anomaly",
+            id: "ANOMALY-" + Math.floor(Math.random() * 1000),
+            name: "Anomaly Detection",
             severity: anomaly.confidence > 0.8 ? "high" : "medium",
             description: `Potential anomaly detected: ${anomaly.description}`,
-            line: anomaly.line,
-            function: anomaly.function,
+            location: {
+              line: anomaly.line || 0,
+            },
+            details: "AI-detected potential issue",
+            recommendation: "Review this section of code carefully",
           });
+
+          // Add recommendations based on anomalies
+          recommendations.push(
+            `Review potential anomaly: ${anomaly.description}`
+          );
 
           // Update risk rating based on anomaly confidence
           if (anomaly.confidence > 0.9 && overallRiskRating !== "critical") {

@@ -41,6 +41,7 @@ const PageLoader = () => (
 const HomePage = React.lazy(() => import("./pages/HomePage"));
 const LoginPage = React.lazy(() => import("./pages/auth/LoginPage"));
 const RegisterPage = React.lazy(() => import("./pages/auth/RegisterPage"));
+const ProfilePage = React.lazy(() => import("./pages/auth/ProfilePage"));
 const DashboardPage = React.lazy(
   () => import("./pages/dashboard/DashboardPage")
 );
@@ -96,6 +97,7 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
         {/* Protected routes */}
         <Route

@@ -284,6 +284,34 @@ export class ContractController {
         return;
       }
 
+      // Format recommendations to be strings if they're objects
+      let formattedRecommendations = results.recommendations;
+      if (Array.isArray(results.recommendations)) {
+        formattedRecommendations = results.recommendations.map((rec) => {
+          if (typeof rec === "string") {
+            return rec;
+          } else if (rec && typeof rec === "object") {
+            // Use type assertion with interface for recommendation object
+            interface Recommendation {
+              description?: string;
+              suggestion?: string;
+              [key: string]: any;
+            }
+            const recommendation = rec as Recommendation;
+
+            if ("description" in recommendation) {
+              let formatted = recommendation.description as string;
+              if ("suggestion" in recommendation && recommendation.suggestion) {
+                formatted += ` - ${recommendation.suggestion}`;
+              }
+              return formatted;
+            }
+            return JSON.stringify(rec);
+          }
+          return String(rec);
+        });
+      }
+
       res.status(200).json({
         success: true,
         contractId,
@@ -295,7 +323,8 @@ export class ContractController {
           complianceResults: results.complianceResults,
           anomalyResults: results.anomalyResults,
           overallRiskRating: results.overallRiskRating,
-          recommendations: results.recommendations,
+          recommendations: results.recommendations, // Keep original for backward compatibility
+          formattedRecommendations: formattedRecommendations, // Add formatted version
         },
       });
     } catch (error) {

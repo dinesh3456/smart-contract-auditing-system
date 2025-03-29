@@ -63,6 +63,7 @@ export type RiskRating =
   | "Informational";
 
 export interface IAnalysis extends Document {
+  executiveSummary: string;
   _id: mongoose.Types.ObjectId;
   contractId: mongoose.Types.ObjectId;
   status: AnalysisStatus;

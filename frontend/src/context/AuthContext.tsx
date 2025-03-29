@@ -5,8 +5,10 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL1 || "http://localhost:5000/api";
 // User interface
 interface User {
   id: string;
@@ -73,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setAuthToken(token);
 
         // Get user data
-        const res = await axios.get("/api/users/profile");
+        const res = await axios.get(`${API_URL}/users/profile`);
 
         setUser(res.data.user);
         setIsAuthenticated(true);
@@ -121,15 +123,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Login function
+  // Login function
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await axios.post(`${config.apiUrl}/users/login`, {
+      console.log("Attempting login to:", `${API_URL}/users/login`); // Add logging
+
+      const res = await axios.post(`${API_URL}/users/login`, {
         email,
         password,
       });
+
+      console.log("Login response:", res.data); // Add logging
+
       // Store token in localStorage
       localStorage.setItem("token", res.data.token);
 
@@ -140,6 +148,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(res.data.user);
       setIsAuthenticated(true);
     } catch (err: any) {
+      console.error("Login error:", err); // Add logging
       setError(err.response?.data?.message || "Login failed");
       setIsAuthenticated(false);
       setUser(null);
@@ -159,7 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const res = await axios.post("/api/users/register", {
+      const res = await axios.post(`${API_URL}/users/register`, {
         name,
         email,
         password,

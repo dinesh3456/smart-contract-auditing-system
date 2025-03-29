@@ -9,7 +9,7 @@ const adminController = new AdminController();
 router.get(
   "/queue/status",
   authenticate,
-  authorize(["admin"]), // You may need to adjust this based on your authorization setup
+  authorize(["admin"]),
   adminController.getQueueStatus
 );
 
